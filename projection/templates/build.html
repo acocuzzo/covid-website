@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="https://d3js.org/d3.v4.0.0-alpha.44.min.js"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js" integrity="sha384-OgVRvuATP1z7JjHLkuOU7Xw704+h835Lr+6QL9UvYjZE3Ipu6Tp75j7Bh/kR0JKI" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font: 10 px sans-serif;
+            margin-top: 20px;
+            margin-left: 10%;
+            margin-right: 20%;
+        }
+        .ui-slider {
+            width: 20%;
+        }
+    </style>
+    </head>
+    <body>
+    <script>
+        $(document).ready(function () {
+            window.max_dur = 30;
+            window.r0 = 2;
+            window.other = 0;
+            
+            $("#r0").slider({
+                min: 0.25,
+                max: 6.00,
+                step: 0.25,
+                value: 2.00,
+                slide: function () {
+                    var value = $("#r0").slider("value");
+                    $("#r0selection").text(value);
+                    window.r0 = value;
+                    build();
+                },
+                change: function () {
+                    var value = $("#r0").slider("value");
+                    window.r0 = value;
+                    $("#r0selection").text(value);
+                build();
+                }
+            });
+            var margin = { top: 20, right: 80, bottom: 30, left: 50 };
+            var width = 900 - margin.left - margin.right;
+            var height = 500 - margin.top - margin.bottom;
+            // append the svg object to the body of the page
+            var svg = d3.select("#my_dataviz")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform",
+                    "translate(" + margin.left + "," + margin.top + ")");
+            // Initialise a X axis:
+            function addDays(date, days){
+                var result = new Date(date);
+                result.setDate(result.getDate() + days);
+                return result;
+            }
+            var day_zero = new Date(2020, 02, 29);
+            var x = d3.scaleTime()
+                .domain([day_zero, addDays(day_zero, 90)])
+                .range([0, width]);
+            var xAxis = d3.axisBottom().scale(x);
+            svg.append("g")
+                .attr("transform", "translate(0," + height + ")")
+                .attr("class", "myXaxis")
+                .call(d3.axisBottom(x));
+            svg.append("text")
+                .attr("transform",
+                        "translate(" + (width/2) + " ," + (height + margin.top + 30) + ")")
+                .style("text-anchor", "middle")
+                .text("Date")
+            // Initialize an Y axis
+            var y = d3.scaleLinear()
+                .range([height, 0])
+                .domain([0, 500000]);
+            var yAxis = d3.axisLeft().scale(y);
+            svg.append("g")
+                .attr("class", "myYaxis")
+                .call(d3.axisLeft(y));
+            svg.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 0)
+                .attr("x", 0 - (height/2))
+                .attr("dy", "1em")
+                .style("text-anchor", "middle")
+                .text("Cases");
+
+            window.this_model = null;
+            // Create a function that takes a dataset as input and update the plot:
+            function update(data) {
+                var u = svg.selectAll(".lineTest")
+                    .data([data], function (d) { return d.day });
+                // Update the line
+                u
+                    .enter()
+                    .append("path")
+                    .attr("class", "lineTest")
+                    .merge(u)
+                    .transition()
+                    .duration(300)
+                    .attr("d", d3.line()
+                        .x(function (d) { return x(addDays(day_zero,d.day)); })
+                        .y(function (d) { return y(d.case); }))
+                    .attr("fill", "none")
+                    .attr("stroke", "steelblue")
+                    .attr("stroke-width", 2.5)
+            };
+            function build(){
+                $.get("/")
+                var r0_str = window.r0.toString();
+                var md_str = window.max_dur.toString();
+                var other_str = window.other.toString();
+                var path = "https://raw.githubusercontent.com/acocuzzo/projections/master/8399000/30_days/max_dur_";
+                var url = path.concat(md_str, "/r0_", r0_str, "other", other_str, ".csv");
+                d3.csv(
+                        url,
+                        function (row) {
+                            return { day: +row.day, case: +row.case }
+                        },
+                        function (data) {
+                            update(data);
+                        }
+                    );
+            };
+            $("#30Days").click(function () {
+                window.max_dur = 30;
+                $("#mdselection").text(window.max_dur);
+                build();
+                 });
+            $("#45Days").click(function () {
+                window.max_dur = 45;
+                $("#mdselection").text(window.max_dur);
+                build();
+            });
+               $("#NoMultiply").click(function () {
+                window.other = 0;
+                $("#other_selection").text("Assuming NY Case Count accurate");
+                build();
+            });
+                $("#Multiply10x").click(function () {
+                window.other = 1;
+                $("#other_selection").text("Assuming NY Case Count 1/10 Actual Cases");
+                build();
+            });
+            $("#DeathRate0.1").click(function () {
+                window.other = 2;
+                $("#other_selection").text("Assuming case count based on 0.1 death rate of NY deaths count");
+                build();
+            });
+           $("#DeathRate0.2").click(function () {
+                window.other = 3;
+                $("#other_selection").text("Asssuming case count based on 0.2 death rate of NY deaths count");
+                build();
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <h2>Covid Model</h1>
+    <h3>Adjust R0 Value</h2>
+    <div id="r0"></div>
+    <p id="r0selection"></p>
+    <h3>Select Max Duration</h2>
+    <div class="btn-group" role="group">
+        <button type="button" id="30Days" class="btn btn-primary">30 Days</button>
+        <button type="button" id="45Days" class="btn btn-primary">45 Days</button>
+    </div>
+    <p id="mdselection"></p>
+    <h3>Select other assumptions</h2>
+    <button type="button" id="NoMultiply" class="btn btn-primary">Assume NY case count accurate</button>
+    <button type="button" id="Multiply10x" class="btn btn-primary">Assume NY case count 1/10 actual count</button>
+    <button type="button" id="DeathRate0.1" class="btn btn-primary">Assume 0.1 death rate</button>
+    <button type="button" id="DeathRate0.2" class="btn btn-primary">Assume 0.2 death rate</button>
+    <button type="button" id="BuildModel" class="btn btn-primary">BuildModel</button>
+    <p id="other_selection"></p>
+    <div id="my_dataviz"></div>
+</body>
+
+</html>
